@@ -1,9 +1,9 @@
-"""Scripting: run user python against a target through a controlled api.
+"""Scripting: run user python against a target through a convenience api.
 
 Scripts are plain python files. They get one global, ``target``, a
-ScriptTarget wrapping the attached process. Scripts run with your own
-privileges, so only run scripts you trust, the same deal as cheat
-engine lua scripts.
+ScriptTarget wrapping the attached process. This is not a sandbox:
+scripts run with your full python and your privileges, so only run
+scripts you trust, the same deal as cheat engine lua scripts.
 
 Example script:
 

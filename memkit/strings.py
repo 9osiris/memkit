@@ -223,7 +223,7 @@ def _spans(start, end, chunk_size):
 def scan_strings(process, min_length=DEFAULT_MIN_LENGTH,
                  encodings=("ascii", "utf-8", "utf-16le"),
                  start=None, end=None, max_hits=100000,
-                 chunk_size=4 * 1024 * 1024):
+                 chunk_size=1024 * 1024):
     """Scan readable regions of a process for strings.
 
     Reads in chunks with a small overlap so strings crossing a chunk
