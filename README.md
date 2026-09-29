@@ -56,7 +56,8 @@ python -m memkit --batch hunt.mk
   them later, diff snapshots to see what changed (`memkit/session.py`,
   cli: `session ...`)
 - scripting: run your own python files against the target through a
-  controlled `target` api object (`memkit/scripting.py`, cli: `script`)
+  convenience `target` api object (not a sandbox: scripts run as full
+  python, only run ones you trust) (`memkit/scripting.py`, cli: `script`)
 - curses hex viewer with goto, in-place hex editing and pointer following
   (`memkit/tui.py`, cli: `hexview`)
 - typed reads/writes, pointer chain resolution, value freezing, region
