@@ -6,7 +6,7 @@ configurable depth. Chains are deduplicated and ranked by depth, so the
 most useful (deepest, smallest offset) chains come first.
 """
 import struct
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 
 from memkit.regions import list_regions
 from memkit.types import POINTER_FMT, POINTER_SIZE
@@ -42,11 +42,18 @@ class Chain:
         return [addr for addr, _ in self.steps]
 
     def resolve(self, process):
-        """Walk the chain in the target process, return the final address."""
-        current = None
+        """Walk the chain in the target process, return the final address.
+
+        Each step reads the pointer at the running address and adds its
+        offset; the result feeds the next step, so every hop in the
+        chain actually matters.
+        """
+        addr = None
         for address, offset in self.steps:
-            current = process.read_pointer(address) + offset
-        return current
+            if addr is None:
+                addr = address
+            addr = process.read_pointer(addr) + offset
+        return addr
 
     def describe(self, target=None):
         parts = []
@@ -126,14 +133,18 @@ def scan_pointers(process, target, max_offset=0x1000, depth=3, start=None,
     # current maps each target address to the chains that end there
     current = {int(target): [Chain([])]}
     for _ in range(depth):
+        # sorted targets let each slot binary-search the targets it can
+        # reach instead of checking every target for every slot
+        targets = sorted(current.items())
+        taddrs = [t for t, _ in targets]
         next_targets = {}
         for slot, value in _iter_pointer_slots(process, ranges, start, end,
                                                writable_only):
             if require_mapped and not _is_mapped(ranges, value):
                 continue
-            for taddr, suffixes in current.items():
-                if not taddr - max_offset <= value <= taddr:
-                    continue
+            lo = bisect_left(taddrs, value)
+            hi = bisect_right(taddrs, value + max_offset)
+            for taddr, suffixes in targets[lo:hi]:
                 offset = taddr - value
                 for suffix in suffixes:
                     if slot in suffix.addresses:
