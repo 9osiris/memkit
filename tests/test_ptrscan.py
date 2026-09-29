@@ -38,6 +38,26 @@ class ChainTest(unittest.TestCase):
         finally:
             proc.close()
 
+    def test_resolve_follows_earlier_steps(self):
+        # repointing an outer slot must change the result: every hop in
+        # the chain feeds the next, the last step alone is not enough
+        target = ctypes.c_uint32(0xBEEF)
+        other = ctypes.c_uint32(0xCAFE)
+        mid = Slot(0, ctypes.addressof(target))
+        mid2 = Slot(0, ctypes.addressof(other))
+        outer = Slot(0, ctypes.addressof(mid) + Slot.ptr.offset)
+        proc = Process.attach_pid(os.getpid())
+        try:
+            chain = Chain([
+                (ctypes.addressof(outer) + Slot.ptr.offset, 0),
+                (ctypes.addressof(mid) + Slot.ptr.offset, 0),
+            ])
+            self.assertEqual(chain.resolve(proc), ctypes.addressof(target))
+            outer.ptr = ctypes.addressof(mid2) + Slot.ptr.offset
+            self.assertEqual(chain.resolve(proc), ctypes.addressof(other))
+        finally:
+            proc.close()
+
     def test_chain_equality_and_hash(self):
         a = Chain([(0x1000, 0x10)])
         b = Chain([(0x1000, 0x10)])
