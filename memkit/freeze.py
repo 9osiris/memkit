@@ -8,6 +8,7 @@ class Freezer:
     def __init__(self, process):
         self.process = process
         self._entries = {}
+        self._errors = {}
         self._next_id = 1
         self._lock = threading.Lock()
 
@@ -15,25 +16,36 @@ class Freezer:
         check_type(type_name)
         blob = pack(type_name, value)
         stop = threading.Event()
+        with self._lock:
+            fid = self._next_id
+            self._next_id += 1
 
         def loop():
             while not stop.wait(interval):
                 try:
                     self.process.write(address, blob)
-                except OSError:
-                    pass
+                except OSError as e:
+                    with self._lock:
+                        count, _ = self._errors.get(fid, (0, ""))
+                        self._errors[fid] = (count + 1, str(e))
 
         thread = threading.Thread(target=loop, daemon=True)
         with self._lock:
-            fid = self._next_id
-            self._next_id += 1
             self._entries[fid] = (stop, thread, address, type_name, value, interval)
         thread.start()
         return fid
 
+    def errors(self, fid):
+        """(failed_write_count, last_error) for one frozen value."""
+        with self._lock:
+            if fid not in self._entries:
+                raise KeyError("no frozen value with id %d" % fid)
+            return self._errors.get(fid, (0, ""))
+
     def remove(self, fid):
         with self._lock:
             entry = self._entries.pop(fid, None)
+            self._errors.pop(fid, None)
         if entry is None:
             raise KeyError("no frozen value with id %d" % fid)
         stop, thread, _, _, _, _ = entry

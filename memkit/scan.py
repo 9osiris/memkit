@@ -17,6 +17,7 @@ class Scanner:
         _, self.size = check_type(type_name)
         self.candidates = []
         self._snapshot = {}
+        self._primed = False
 
     def _spans(self, start, end):
         spans = []
@@ -49,13 +50,14 @@ class Scanner:
     def scan_exact(self, value, start=None, end=None):
         """First pass finds every match. Later passes keep still-matching ones."""
         needle = pack(self.type_name, value)
-        if not self._snapshot and not self.candidates:
+        if not self._primed:
             self.candidates = []
             self._snapshot = {}
             for addr, raw in self._iter_slots(start, end):
                 if raw == needle:
                     self.candidates.append(addr)
                     self._snapshot[addr] = raw
+            self._primed = True
         else:
             alive = {}
             for addr in self.candidates:
@@ -74,10 +76,11 @@ class Scanner:
         for addr, raw in self._iter_slots(start, end):
             self.candidates.append(addr)
             self._snapshot[addr] = raw
+        self._primed = True
         return self.candidates
 
     def _narrow(self, predicate):
-        if not self._snapshot:
+        if not self._primed:
             raise RuntimeError("run scan_exact or scan_initial first")
         old = self._snapshot
         alive = {}
