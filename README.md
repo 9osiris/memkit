@@ -3,7 +3,7 @@
 a process memory toolkit for debugging and reverse engineering. attach to a
 running process, list its memory regions, scan for values cheat-engine style,
 follow pointer chains, read and write typed values, freeze values in place,
-and dump regions to disk.
+watch values for changes, and dump regions to disk.
 
 zero dependencies. python 3.8+, standard library only.
 
@@ -23,6 +23,7 @@ memkit> scan decreased
 memkit> read u32 0x7f3a2b1c
 memkit> write u32 0x7f3a2b1c 999
 memkit> freeze u32 0x7f3a2b1c 999 0.1
+memkit> watch u32 0x7f3a2b1c 0.1
 memkit> aob "48 8b ? ? 74 10"
 memkit> strings 8
 memkit> ptrscan 0x7f3a2b1c 3
@@ -63,6 +64,9 @@ python -m memkit --batch hunt.mk
 - typed reads/writes, pointer chain resolution, value freezing, region
   dumps (`memkit/process.py`, `memkit/pointer.py`, `memkit/freeze.py`,
   `memkit/dump.py`)
+- watchpoint-style polling: `watch <type> <addr> [interval]` prints
+  old -> new plus a timestamp whenever the value changes, unmapped pages
+  get a clean note instead of a crash (`memkit/watch.py`, cli: `watch`)
 
 ## python api
 
