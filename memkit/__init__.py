@@ -26,8 +26,9 @@ from memkit.structs import BytesReader, Field, ProcessReader, Struct, Union
 from memkit.structs import parse_c as parse_c_structs
 from memkit.tui import HexViewer
 from memkit.types import TYPES, pack, unpack
+from memkit.watch import Watcher
 
-__version__ = "0.1.0"
+__version__ = "1.1.0"
 __all__ = [
     "TYPES",
     "pack",
@@ -72,5 +73,6 @@ __all__ = [
     "run_script",
     "run_script_file",
     "HexViewer",
+    "Watcher",
     "__version__",
 ]
