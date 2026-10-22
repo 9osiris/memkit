@@ -11,6 +11,7 @@ from memkit.process import Process, UnsupportedPlatformError, find_processes
 from memkit.regions import list_regions
 from memkit.scan import Scanner
 from memkit.types import TYPES, parse_value
+from memkit.watch import Watcher
 
 HELP = """commands:
   attach pid <pid>            attach to a process id
@@ -29,6 +30,10 @@ HELP = """commands:
   freeze <type> <addr> <value> [interval]
   unfreeze <id>               stop a frozen value
   freezes                     list frozen values
+  watch <type> <addr> [interval]
+                              print old -> new + timestamp on change
+  unwatch <id>                stop watching an address
+  watches                     list watched addresses
   dump <addr> <size> <path>   dump a region to a file
   aob <pattern> [start] [end] array-of-bytes scan, e.g. aob "48 8b ? ?"
   strings [minlen] [start] [end]
@@ -62,6 +67,7 @@ class Shell:
         self.process = None
         self.scanner = None
         self.freezer = None
+        self.watcher = None
         self.session = None
 
     def need_process(self):
@@ -91,6 +97,7 @@ class Shell:
             self.process.close()
         self.process = proc
         self.freezer = Freezer(proc)
+        self.watcher = Watcher(proc)
         self.scanner = None
         print("attached to pid %d" % proc.pid)
 
@@ -207,6 +214,37 @@ class Shell:
         for fid, (addr, type_name, value, interval) in frozen.items():
             print("%d: %s %#x = %s every %ss" % (fid, type_name, addr, value, interval))
 
+    def cmd_watch(self, args):
+        proc = self.need_process()
+        if not 2 <= len(args) <= 3:
+            print("usage: watch <type> <addr> [interval]")
+            return
+        interval = float(args[2]) if len(args) == 3 else 0.1
+        addr = parse_addr(args[1])
+        try:
+            wid = self.watcher.add(addr, args[0], interval)
+        except OSError as e:
+            print("%#x is unreadable: %s" % (addr, e))
+            return
+        print("watch %d: %s %#x every %ss" % (wid, args[0], addr, interval))
+
+    def cmd_unwatch(self, args):
+        self.need_process()
+        if len(args) != 1:
+            print("usage: unwatch <id>")
+            return
+        self.watcher.remove(int(args[0]))
+        print("unwatched")
+
+    def cmd_watches(self, args):
+        self.need_process()
+        watched = self.watcher.list()
+        if not watched:
+            print("nothing watched")
+            return
+        for wid, (addr, type_name, last, interval) in watched.items():
+            print("%d: %s %#x = %s every %ss" % (wid, type_name, addr, last, interval))
+
     def cmd_dump(self, args):
         proc = self.need_process()
         if len(args) != 3:
@@ -236,7 +274,7 @@ class Shell:
         from memkit.strings import scan_strings
         minlen = int(args[0]) if len(args) > 0 else 4
         start = parse_addr(args[1]) if len(args) > 1 else None
-        end = parse_addr(args[2]) if len(args) > 2 else None
+        end = parse_addr(args[2]) if len(args) > 1 else None
         hits = scan_strings(proc, minlen, start=start, end=end)
         for hit in hits[:20]:
             shown = hit.value if len(hit.value) <= 60 else hit.value[:57] + "..."
@@ -432,6 +470,8 @@ class Shell:
     def _cleanup(self):
         if self.freezer is not None:
             self.freezer.stop_all()
+        if self.watcher is not None:
+            self.watcher.stop_all()
         if self.process is not None:
             self.process.close()
             self.process = None
